@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,11 +15,13 @@ import {
 import { API_URL } from './config';
 
 const CATEGORIES = ['Food', 'Transport', 'Bills', 'Shopping', 'Other'];
+const FILTERS = ['All', ...CATEGORIES];
 
 export default function App() {
   const [expenses, setExpenses] = useState([]);
   const [total, setTotal] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('All');
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
@@ -27,8 +30,13 @@ export default function App() {
 
   const loadData = useCallback(async () => {
     try {
+      const listUrl =
+        filter === 'All'
+          ? `${API_URL}/api/expenses`
+          : `${API_URL}/api/expenses?category=${encodeURIComponent(filter)}`;
+
       const [listRes, summaryRes] = await Promise.all([
-        fetch(`${API_URL}/api/expenses`),
+        fetch(listUrl),
         fetch(`${API_URL}/api/expenses/summary`),
       ]);
       setExpenses(await listRes.json());
@@ -37,7 +45,7 @@ export default function App() {
     } catch (err) {
       console.log('Error loading data:', err);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     loadData();
@@ -162,12 +170,28 @@ export default function App() {
         )}
       </View>
 
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.chip, filter === f && styles.chipActive]}
+              onPress={() => setFilter(f)}
+            >
+              <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+                {f}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       <FlatList
         data={expenses}
         keyExtractor={(item) => String(item.id)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 16 }}
-        ListEmptyComponent={<Text style={styles.empty}>No expenses yet.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>No expenses here.</Text>}
         renderItem={({ item }) => (
           <View style={[styles.item, editingId === item.id && styles.itemEditing]}>
             <TouchableOpacity style={{ flex: 1 }} onPress={() => startEdit(item)}>
@@ -219,6 +243,7 @@ const styles = StyleSheet.create({
   addButtonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   cancelButton: { padding: 12, alignItems: 'center' },
   cancelText: { color: NAVY, fontWeight: '600' },
+  filterBar: { paddingHorizontal: 16, paddingTop: 12 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
